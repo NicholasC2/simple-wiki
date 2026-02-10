@@ -3,53 +3,79 @@ import fs from "fs";
 const WikiDir = "wikis";
 const AllowedNamesRegex = /^[A-Za-z0-9_ -]+$/;
 
-/**
- * @param {String} name 
- * @returns {Boolean}
- */
-export function createWiki(name, description) {
-    if(!AllowedNamesRegex.test(name)) {
-        throw new Error("Invalid wiki name")
-    }
+class Page {
+    title = ""
+    id = ""
+}
 
-    const date = new Date();
-    const id = name.replaceAll(" ", "-");
-    const wikiManifest = {
-        name: name,
-        description: description,
-        id: id,
-        pages: [],
-        createdAt: (date.getTime()/1000) - (date.getTimezoneOffset()*60)
-    }
+const UpdateTypes = [
+    "Content",
+    "Title",
+    "Description"
+]
 
-    if(!fs.existsSync(WikiDir)) fs.mkdirSync(WikiDir);
-    const stats = fs.statSync(WikiDir)
-    if(!stats.isDirectory()) {
-        fs.rmSync(WikiDir);
-        fs.mkdirSync(WikiDir);
-    }
-    if(!fs.existsSync(WikiDir)) {
-        throw new Error("Dir Creation Error")
-    }
+class WikiUpdate {
+    page = Page
+    type = 0
+    changeTo = ""
+    updatedAt = 0
+}
 
-    const wikiFolder = WikiDir+"/"+id
-    if(fs.existsSync(wikiFolder)) {
-        if(!fs.existsSync(wikiFolder+"/manifest.json")) {
-            fs.rmdirSync(wikiFolder);
+class Wiki {
+    name = ""
+    description = ""
+    id = ""
+    createdAt = 0
+    updates = [WikiUpdate]
+    pages = [Page]
 
-            fs.mkdirSync(wikiFolder)
-            return createManifest(wikiFolder, wikiManifest);
+    constructor(name, description) {
+        if(!AllowedNamesRegex.test(name)) {
+            throw new Error("Invalid wiki name")
         }
-        throw new Error("Wiki Already Exists");
-    } else {
-        fs.mkdirSync(wikiFolder)
-        return createManifest(wikiFolder, wikiManifest);
+    
+        this.name = name;
+        this.description = description;
+        this.id = name.replaceAll(" ", "-").toLowerCase();
+        
+        const date = new Date()
+        this.createdAt = date.getTime() - date.getTimezoneOffset()
+        this.updates = []
+        this.pages = []
     }
 }
 
-function createManifest(wikiFolder, manifestJSON) {
-    fs.writeFileSync(wikiFolder+"/manifest.json", JSON.stringify(manifestJSON, null, 4))
-    return "Wiki Created Successfuly"
+/**
+ * Creates the WikiDir if it doesn't exist or is a file
+ */
+function initWikiDir() {
+    if(!fs.existsSync(WikiDir)) {
+        fs.mkdirSync(WikiDir)
+    } // Create wiki dir if it doesn't exist
+
+    const stats = fs.statSync(WikiDir)
+    if(!stats.isDirectory()) {
+        fs.rmSync(WikiDir); // Deletes wiki dir if it is a file
+        fs.mkdirSync(WikiDir) // Creates wiki dir because it doesn't exist
+    }
+}
+
+/**
+ * @param {String} name 
+ */
+export function createWiki(name, description) {
+    initWikiDir() // make sure that wiki dir exists
+    const newWiki = new Wiki(name, description); // Instantiates new wiki
+
+    const newWikiFolder = WikiDir+"/"+newWiki.id
+    if(fs.existsSync(newWikiFolder)) {
+        throw new Error("Wiki Already Exists"); // Throw error if the folder already exists
+    } else {
+        fs.mkdirSync(newWikiFolder) // makes the wiki folder
+        fs.writeFileSync(newWikiFolder+"/manifest.json", JSON.stringify(newWiki, null, 4)) // makes the wiki manifest
+        fs.mkdirSync(newWikiFolder+"/pages") // makes the wiki manifest
+        return "Wiki Created Successfuly"
+    }
 }
 
 export function getWiki(search) {
